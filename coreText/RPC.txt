@@ -1,0 +1,36 @@
+实现简单RPC框架
+分布式系统常用的框架，需要解决应用间通信的问题、序列化与反序列化问题
+RPC不同于REST的远程调用，客户端能直接调用服务端方法，就像本地方法一样。而REST并不透明，无论客户端还是服务端都需要和解析和封装HTTP请求和响应
+
+RPC 框架是怎么调用远程服务的？
+客户端中：
+@Reference，注解获取实现服务的对象(dubbo框架),对于业务代码只需要调用这个对象的方法就可以获得结果，但实际上真正的服务是在远程的服务端中实现的。(HelloService)
+服务端中：
+@Service，注解即在Dubbo框架中注册了这个实现类，在服务端我们只是提供了接口服务的实现，并没有任何远程调用的实现代码。(HelloServiceImpl)
+
+RPC实现原理
+在客户端我们业务代码得到的HelloService接口的实例，并不是我们在服务端提供的真正实现类的实例。它实际上是由RPC框架提供的一个代理类， 桩"Stub"。
+在不同的RPC框架桩的生成方式不一样，可以编译阶段实现也可以运行时动态生成。
+我们知道HelloService的桩同样要实现接口，客户端在调用Hello方法时，实际上是调用桩的Hello方法。在桩的Hello方法中，会构造一个请求，
+这个请求就是一段数据结构，请求中包含了两个重要信息
+1、请求的服务名，在我们这个例子中就是HelloService#hello(String)，告诉服务端是HelloService的hello方法。
+2、请求的所有参数，在我们这个例子中就是一个name，值是“World”。
+服务端处理请求，收到请求后会先解析出请求中的服务名，然后根据服务名在服务端进程中找有没有对应的服务提供者。
+在例子中，我们已经通过注解@Service向RPC框架注册过HelloService的实现类，所以可以通过HelloService服务名找到这个实现类。
+然后RPC框架调用实现类的hello方法，使用发送给来的参数值。服务端的RPC框架获得返回值后，再封装成响应返回给客户端。
+
+客户端是如何找到服务端地址的呢？
+在 RPC 框架中，这部分的实现原理其实和消息队列的实现是完全一样的，都是通过一个 NamingService 来解决的。NamingService即注册中心，
+服务端的业务代码向RPC框架中注册服务后，RPC框架就会把这个服务的名称和地址发布到注册中心上，客户端的桩在调用服务端方法时，会向注册中心请求服务端的地址，
+请求的参数就是服务名，例子中方法签名就是HelloService#hello,注册中心会返回这个服务的地址，然后客户端再去请求服务端。	
+
+动手实现！RPC框架的总体结构
+我们把 RPC 框架对外提供的所有服务定义在一个接口 RpcAccessPoint 中
+其中getRemoteService(URI uri, Class<T> serviceClass)方法，和dubbo中的@Reference注解一样，供客户端使用获取远程服务的实例。
+addServiceProvider(T service, Class<T> serviceClass)方法，和dubbo中的@Service注解一样，服务端通过这个方法来注册服务的实现。
+方法 startServer 和 close（在父接口 Closeable 中定义）用于服务端启动和停止服务。
+此外，我们还需要一个注册中心NamingService。
+这个注册中心只有两个方法，分别是注册服务地址 registerService(String serviceName, URI uri) 和查询服务地址 lookupService(String serviceName)
+
+客户端桩的生成。普通的类是根据我们编写的源码编译成class字节码文件，再加载到JVM中来创建对应实例运行。所以我们可以跳过源代码编译流程，直接生成class字节码就实现了动态编译。
+利用CGLIB字节码动态生成工具生成。

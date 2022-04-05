@@ -1,0 +1,31 @@
+Spring知识学习
+1、start.spring.io生成自己的spring工程
+
+2、mvn clean package -Dmaven.test.skip maven打包跳过测试
+java -jar xxx-SNAPSHOT.jar 执行可执行jar包
+
+3、Spring Boot默认会打可执行jar包，这个和普通jar包结构不一样，里面包含了所有依赖的jar同时也会有web容器，因此不会再需要外部容器即可运行
+
+4、Spring配置获取DataSource连接信息，可以通过代码读取jdbc.properties文件手动获取，或者在applicationContext.xml中配置数据连接信息Bean。
+Spring Boot通过DataSourceAutoConfiguration帮我们配置了数据源，DataSourceTransactionManagerAutoConfiguration也会自动配置，JdbcTemplate
+
+5、Spring Boot配置多个数据源，创建多个DataSource的Bean，配置文件.properties建议分开配置，方便维护
+
+6、HikariCP，光连接池。HikariDataSource，假如使用版本为Spring Boot 2.x默认使用了Hikari连接池，只需要配置spring.datasource.hikari.*配置
+低版本则需移除Tomcat-jdbc,将pom里的spring.datasource.type设置为com.zaxxer.hikari.HikariDataSource
+
+7、@Component @Repository操作仓库 @Service业务层注解 @Controller @RestController
+JDBC重要的类 JdbcTemplate(提供了query execute update queryForObject queryForList等操作)
+批处理 batchUpdate
+
+8、Spring的事务抽象，事务传播特性。Propagation_required 当前有事务就用当前的，没有就创新的
+xx_SUPPORTS 事务可有可无 xx_MANDATORY 当前一定要有事务，不然抛异常 xx_REQUIRED_NEW 无论是否有事务，都启一个新的
+xx_NOT_SUPPORTED 不支持事务 xx_NEVER 不支持事务，如果有抛异常 xx_NESTED 如果有事务，在当前事务里再起一个事务
+
+Spring其实是给你的事务类做了一个代理，所以只有在调用了代理类才能真的执行到我被代理增强的那些方法，
+但如果方法实在类的内部去调用的话，意味着没有走到我的那些代理方法，所以去调用@Transactional注解的方法本身是没有事务的，所以是不被事务支持的，并没有真正启动一个事务
+修改：
+在当前类的方法中通过AopContext.currentProxy()获取当前类的代理对象，再调用的代理对象的方法(其实是增强后的方法)，事务就会生效了。
+或者直接把自己的实例注入进来@Autowired，内部方法改为直接调用注入进来的实例。因为Spring其实是为你创建了一个代理，那我们调用代理就好了
+
+9、SpringMVC DispatcherServlet 包含了Controller xxResolver HandlerMapping
